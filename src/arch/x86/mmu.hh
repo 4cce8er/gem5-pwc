@@ -54,7 +54,11 @@ class MMU : public BaseMMU
   public:
     MMU(const X86MMUParams &p)
       : BaseMMU(p)
-    {}
+    {
+      printf("Construction X86MMU. Enable PWC: %d, pml4c size: %u, "
+            "pdpc size: %u, pdec size: %u\n",
+            p.enable_pwc, p.pwc_pml4_size, p.pwc_pdp_size, p.pwc_pde_size);
+    }
 
     void
     flushNonGlobal()

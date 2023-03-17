@@ -44,17 +44,34 @@ class X86CPU:
     ArchInterrupts = X86LocalApic
     ArchISA = X86ISA
 
-
+# Shiming: Add pwc params when initializing mmus to all classes below
 class X86AtomicSimpleCPU(BaseAtomicSimpleCPU, X86CPU):
-    mmu = X86MMU()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Shiming: So you have to say "self".mmu to make it work...
+        #  or the classes's mmu is never initialized
+        self.mmu = X86MMU(enable_pwc=self.enable_pwc,
+                pwc_pml4_size=self.pwc_pml4_size,
+                pwc_pdp_size=self.pwc_pdp_size,
+                pwc_pde_size=self.pwc_pde_size)
 
 
 class X86NonCachingSimpleCPU(BaseNonCachingSimpleCPU, X86CPU):
-    mmu = X86MMU()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.mmu = X86MMU(enable_pwc=self.enable_pwc,
+                pwc_pml4_size=self.pwc_pml4_size,
+                pwc_pdp_size=self.pwc_pdp_size,
+                pwc_pde_size=self.pwc_pde_size)
 
 
 class X86TimingSimpleCPU(BaseTimingSimpleCPU, X86CPU):
-    mmu = X86MMU()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.mmu = X86MMU(enable_pwc=self.enable_pwc,
+                pwc_pml4_size=self.pwc_pml4_size,
+                pwc_pdp_size=self.pwc_pdp_size,
+                pwc_pde_size=self.pwc_pde_size)
 
 
 class X86IntMultDiv(IntMultDiv):
@@ -86,7 +103,13 @@ class DefaultX86FUPool(FUPool):
 
 
 class X86O3CPU(BaseO3CPU, X86CPU):
-    mmu = X86MMU()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.mmu = X86MMU(enable_pwc=self.enable_pwc,
+                pwc_pml4_size=self.pwc_pml4_size,
+                pwc_pdp_size=self.pwc_pdp_size,
+                pwc_pde_size=self.pwc_pde_size)
+
     needsTSO = True
 
     # For x86, each CC reg is used to hold only a subset of the

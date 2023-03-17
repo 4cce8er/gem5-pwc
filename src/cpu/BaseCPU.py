@@ -130,6 +130,14 @@ class BaseCPU(ClockedObject):
     workload = VectorParam.Process([], "processes to run")
 
     mmu = Param.BaseMMU(NULL, "CPU memory management unit")
+    # Shiming: Add args for pwc. It only works for X86 though
+    # @{
+    enable_pwc = Param.Bool(False, "Use translation cache "
+                                        "(aka pwc/page structure cache)")
+    pwc_pml4_size = Param.Unsigned(8, "PML4 cache size in number of entries")
+    pwc_pdp_size = Param.Unsigned(16, "PDP cache size in number of entries")
+    pwc_pde_size = Param.Unsigned(32, "PDE cache size in number of entries")
+    # @}
     interrupts = VectorParam.BaseInterrupts([], "Interrupt Controller")
     isa = VectorParam.BaseISA([], "ISA instance")
     decoder = VectorParam.InstDecoder([], "Decoder instance")

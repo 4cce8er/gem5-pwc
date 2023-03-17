@@ -887,3 +887,33 @@ def addFSOptions(parser):
         action="store_true",
         help="Wait for remote GDB to connect.",
     )
+
+    # Shiming: add options for configuring PWC
+    parser.add_argument(
+        "--enable-pwc",
+        default=False,
+        action='store_true',
+        help="Enable page walk cache (translation cache / "
+                "page structure cache). Only works for X86 FS"
+        )
+    parser.add_argument(
+        "--pwc-pml4-size",
+        type=int,
+        default=8,
+        action="store",
+        help="Size of PML4 cache in entries"
+    )
+    parser.add_argument(
+        "--pwc-pdp-size",
+        type=int,
+        default=16,
+        action="store",
+        help="Size of PDP cache in entries"
+    )
+    parser.add_argument(
+        "--pwc-pde-size",
+        type=int,
+        default=32,
+        action="store",
+        help="Size of PDE cache in entries"
+    )

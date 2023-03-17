@@ -35,6 +35,9 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+# Shiming: To add params
+from m5.params import *
+
 from m5.objects.BaseMMU import BaseMMU
 from m5.objects.X86TLB import X86TLB
 
@@ -45,6 +48,14 @@ class X86MMU(BaseMMU):
     cxx_header = "arch/x86/mmu.hh"
     itb = X86TLB(entry_type="instruction")
     dtb = X86TLB(entry_type="data")
+
+    # Shiming: Add option to enable translation cache
+    #  (i.e. pwc/page structure cache)
+    enable_pwc = Param.Bool(False, "Use translation cache "
+                                    "(aka pwc/page structure cache)")
+    pwc_pml4_size = Param.Unsigned(8, "PML4 cache size in number of entries")
+    pwc_pdp_size = Param.Unsigned(16, "PDP cache size in number of entries")
+    pwc_pde_size = Param.Unsigned(32, "PDE cache size in number of entries")
 
     @classmethod
     def walkerPorts(cls):

@@ -144,10 +144,14 @@ def build_test_system(np):
     test_sys.init_param = args.init_param
 
     # For now, assign all the CPUs to the same clock domain
-    test_sys.cpu = [
-        TestCPUClass(clk_domain=test_sys.cpu_clk_domain, cpu_id=i)
-        for i in range(np)
-    ]
+    # Shiming: Initialize pwc settings
+    test_sys.cpu = [TestCPUClass(clk_domain=test_sys.cpu_clk_domain, \
+                        cpu_id=i, \
+                        enable_pwc=args.enable_pwc, \
+                        pwc_pml4_size=args.pwc_pml4_size, \
+                        pwc_pdp_size=args.pwc_pdp_size, \
+                        pwc_pde_size=args.pwc_pde_size)
+                    for i in range(np)]
 
     if args.ruby:
         bootmem = getattr(test_sys, "_bootmem", None)

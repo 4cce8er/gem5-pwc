@@ -508,9 +508,13 @@ def run(options, root, testsys, cpu_class):
                 ].vendor_string = options.override_vendor_string
 
     if cpu_class:
-        switch_cpus = [
-            cpu_class(switched_out=True, cpu_id=(i)) for i in range(np)
-        ]
+        # Shiming: Initialize pwc arguments
+        switch_cpus = [cpu_class(switched_out=True, cpu_id=(i), \
+                        enable_pwc=testsys.cpu[i].enable_pwc, \
+                        pwc_pml4_size=testsys.cpu[i].pwc_pml4_size, \
+                        pwc_pdp_size=testsys.cpu[i].pwc_pdp_size, \
+                        pwc_pde_size=testsys.cpu[i].pwc_pde_size)
+                       for i in range(np)]
 
         for i in range(np):
             if options.fast_forward:
@@ -555,9 +559,13 @@ def run(options, root, testsys, cpu_class):
             print("%s: CPU switching not supported" % str(switch_class))
             sys.exit(1)
 
-        repeat_switch_cpus = [
-            switch_class(switched_out=True, cpu_id=(i)) for i in range(np)
-        ]
+        # Shiming: Initialize pwc settings
+        repeat_switch_cpus = [switch_class(switched_out=True, cpu_id=(i), \
+                                enable_pwc=testsys.cpu[i].enable_pwc, \
+                                pwc_pml4_size=testsys.cpu[i].pwc_pml4_size, \
+                                pwc_pdp_size=testsys.cpu[i].pwc_pdp_size, \
+                                pwc_pde_size=testsys.cpu[i].pwc_pde_size) \
+                            for i in range(np)]
 
         for i in range(np):
             repeat_switch_cpus[i].system = testsys
@@ -585,12 +593,20 @@ def run(options, root, testsys, cpu_class):
             ]
 
     if options.standard_switch:
-        switch_cpus = [
-            TimingSimpleCPU(switched_out=True, cpu_id=(i)) for i in range(np)
-        ]
-        switch_cpus_1 = [
-            DerivO3CPU(switched_out=True, cpu_id=(i)) for i in range(np)
-        ]
+        # Shiming: Initialize pwc settings
+        switch_cpus = [TimingSimpleCPU(switched_out=True, cpu_id=(i), \
+                        enable_pwc=testsys.cpu[i].enable_pwc, \
+                        pwc_pml4_size=testsys.cpu[i].pwc_pml4_size, \
+                        pwc_pdp_size=testsys.cpu[i].pwc_pdp_size, \
+                        pwc_pde_size=testsys.cpu[i].pwc_pde_size) \
+                       for i in range(np)]
+        # Shiming: Initialize pwc settings
+        switch_cpus_1 = [DerivO3CPU(switched_out=True, cpu_id=(i), \
+                        enable_pwc=testsys.cpu[i].enable_pwc, \
+                        pwc_pml4_size=testsys.cpu[i].pwc_pml4_size, \
+                        pwc_pdp_size=testsys.cpu[i].pwc_pdp_size, \
+                        pwc_pde_size=testsys.cpu[i].pwc_pde_size) \
+                        for i in range(np)]
 
         for i in range(np):
             switch_cpus[i].system = testsys
