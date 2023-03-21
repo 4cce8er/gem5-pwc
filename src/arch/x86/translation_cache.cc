@@ -19,8 +19,9 @@
 #include <list>
 #include <vector>
 
-#include "arch/x86/pagetable.hh" // To use PageTableEntry
-#include "base/bitfield.hh" // To use mbit
+#include "arch/x86/pagetable.hh" // Shiming: To use PageTableEntry
+#include "arch/x86/pagetable_walker.hh" // Shiming: To use State
+#include "base/bitfield.hh" // Shiming: To use mbit
 #include "base/trie.hh"
 
 namespace gem5
@@ -103,19 +104,8 @@ namespace X86ISA
         }
     }
 
-    // void BaseTranslationCache::demapPage(Addr va, uint64_t asn) {
-    //     // When a page is demapped on a page fault, only that PTE needs
-    //     //  to be demapped
-    //     TranslationCacheEntry *entry = trie.lookup(va);
-    //     if (entry) {
-    //         trie.remove(entry->trieHandle);
-    //         entry->trieHandle = NULL;
-    //         freeList.push_back(entry);
-    //     }
-    // }
-
     // Child classes
-    Addr PML4Cache::legacyMask(Addr vpn, LegacyAcc la) {
+    Addr PageStructureCache::PML4Cache::legacyMask(Addr vpn, LegacyAcc la) {
         switch (la) {
             case NONE: {
                 return vpn;
@@ -129,7 +119,7 @@ namespace X86ISA
         }
     }
 
-    Addr PDPCache::legacyMask(Addr vpn, LegacyAcc la) {
+    Addr PageStructureCache::PDPCache::legacyMask(Addr vpn, LegacyAcc la) {
         switch (la) {
             case NONE: {
                 return vpn;
@@ -146,7 +136,7 @@ namespace X86ISA
         }
     }
 
-    Addr PDECache::legacyMask(Addr vpn, LegacyAcc la) {
+    Addr PageStructureCache::PDECache::legacyMask(Addr vpn, LegacyAcc la) {
         switch (la) {
             case NONE: {
                 return vpn;
@@ -167,5 +157,10 @@ namespace X86ISA
         }
     }
 
+    void PageStructureCache::flush() {
+        pml4Cache.flush();
+        pdpCache.flush();
+        pdeCache.flush();
+    }
 } // namespace X86ISA
 } // namespace gem5

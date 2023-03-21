@@ -59,6 +59,19 @@ class ThreadContext;
 
 namespace X86ISA
 {
+    // Shiming: define outside of class so pwc can use it
+    enum PageWalkState : short
+    {
+        Ready,
+        Waiting,
+        // Long mode
+        LongPML4, LongPDP, LongPD, LongPTE,
+        // PAE legacy mode
+        PAEPDP, PAEPD, PAEPTE,
+        // Non PAE legacy mode with and without PSE
+        PSEPD, PD, PTE
+    };
+
     class Walker : public ClockedObject
     {
       protected:
@@ -85,17 +98,7 @@ namespace X86ISA
         {
           friend class Walker;
           private:
-            enum State
-            {
-                Ready,
-                Waiting,
-                // Long mode
-                LongPML4, LongPDP, LongPD, LongPTE,
-                // PAE legacy mode
-                PAEPDP, PAEPD, PAEPTE,
-                // Non PAE legacy mode with and without PSE
-                PSEPD, PD, PTE
-            };
+            typedef PageWalkState State;
 
           protected:
             Walker *walker;
@@ -117,6 +120,8 @@ namespace X86ISA
             bool retrying;
             bool started;
             bool squashed;
+            // Shiming: To avoid caching an entry just read from pwc
+            bool fromPwcHit;
           public:
             WalkerState(Walker * _walker, BaseMMU::Translation *_translation,
                         const RequestPtr &_req, bool _isFunctional = false) :
@@ -124,7 +129,8 @@ namespace X86ISA
                 nextState(Ready), inflight(0),
                 translation(_translation),
                 functional(_isFunctional), timing(false),
-                retrying(false), started(false), squashed(false)
+                retrying(false), started(false), squashed(false),
+                /** Shiming: */fromPwcHit(false)
             {
             }
             void initState(ThreadContext * _tc, BaseMMU::Mode _mode,
@@ -218,9 +224,8 @@ namespace X86ISA
       public:
         void setEnablePwc();
 
-      // Shiming: pwc stuff
-        PageWalkCachePtr pwcPtr;
-        void setPwcPtr(PageWalkCachePtr ptr);
+        PageStructureCache* pwc;
+        void setPwc(PageStructureCache* pwcPtr);
     };
 
 } // namespace X86ISA

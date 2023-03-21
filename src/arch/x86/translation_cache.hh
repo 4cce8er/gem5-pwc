@@ -17,9 +17,8 @@
 #include <list>
 #include <vector>
 
-#include "arch/x86/pagetable.hh" // To use PageTableEntry
-
-//#include "arch/x86/pagetable_walker.hh"
+#include "arch/x86/pagetable.hh" // Shiming: To use PageTableEntry
+#include "arch/x86/pagetable_walker.hh" // Shiming: To use State
 #include "base/trie.hh"
 
 #ifndef __ARCH_X86_TRANSLATION_CACHE_HH__
@@ -38,6 +37,8 @@ typedef Trie<Addr, X86ISA::TranslationCacheEntry> TranslationCacheEntryTrie;
 
 namespace X86ISA
 {
+    enum PageWalkState : short; // Defined in pagetable_walker.hh
+
     struct TranslationCacheEntry
     {
         Addr index;
@@ -94,38 +95,55 @@ namespace X86ISA
                     LegacyAcc la=LegacyAcc::NONE, bool update_lru=true);
         public:
             void flush();
-            //void demapPage(Addr va, uint64_t asn);
     };
 
-    class PML4Cache: public BaseTranslationCache
+    /**
+     * This mimics an Intel page structure cache
+     */
+    class PageStructureCache
     {
+        private:
+            /** Create 3 split translation caches for the first 3 level walk */
+            class PML4Cache: public BaseTranslationCache
+            {
+                public:
+                    PML4Cache(uint32_t _size)
+                        : BaseTranslationCache(_size, 12, 39) {}
+                    Addr legacyMask(Addr vpn, LegacyAcc la) override;
+            };
+
+            class PDPCache: public BaseTranslationCache
+            {
+                public:
+                    PDPCache(uint32_t _size)
+                        : BaseTranslationCache(_size, 12, 30) {}
+                    Addr legacyMask(Addr vpn, LegacyAcc la) override;
+            };
+
+            class PDECache: public BaseTranslationCache
+            {
+                public:
+                    PDECache(uint32_t _size)
+                        : BaseTranslationCache(_size, 12, 21) {}
+                    Addr legacyMask(Addr vpn, LegacyAcc la) override;
+            };
         public:
-            PML4Cache(uint32_t _size) : BaseTranslationCache(_size, 12, 39) {}
-            Addr legacyMask(Addr vpn, LegacyAcc la) override;
-            ~PML4Cache() {}
-    };
-
-    class PDPCache: public BaseTranslationCache
-    {
+            /** This class itself is a combination of caches */
+            PML4Cache pml4Cache;
+            PDPCache pdpCache;
+            PDECache pdeCache;
         public:
-            PDPCache(uint32_t _size) : BaseTranslationCache(_size, 12, 30) {}
-            Addr legacyMask(Addr vpn, LegacyAcc la) override;
-            ~PDPCache() {}
-    };
-
-    class PDECache: public BaseTranslationCache
-    {
+            /** Constructor and destructor */
+            PageStructureCache(uint32_t pml4c_size, uint32_t pdpc_size,
+                uint32_t pdec_size)
+                : pml4Cache(pml4c_size), pdpCache(pdpc_size),
+                    pdeCache(pdec_size) {}
+            ~PageStructureCache() {}
         public:
-            PDECache(uint32_t _size) : BaseTranslationCache(_size, 12, 21) {}
-            Addr legacyMask(Addr vpn, LegacyAcc la) override;
-            ~PDECache() {}
-    };
-
-    struct PageWalkCachePtr
-    {
-        PML4Cache* pml4cache = nullptr;
-        PDPCache* pdpcache = nullptr;
-        PDECache* pdecache = nullptr;
+            void flush();
+            //PageTableEntry lookup(Addr va, PageWalkState state);
+            //void insert(Addr vpn, const PageTableEntry& ptentry,
+            //        PageWalkState state);
     };
 
 } // namespace X86ISA

@@ -58,7 +58,7 @@ class MMU : public BaseMMU
 {
     // Shiming: pwc related members
   public:
-    PageWalkCachePtr pwc;
+    PageStructureCache* pwc;
   public:
     // Shiming: construct pwc
     MMU(const X86MMUParams &p)
@@ -69,27 +69,22 @@ class MMU : public BaseMMU
         printf("Construction X86MMU. Enable PWC: %d, pml4c size: %u, "
               "pdpc size: %u, pdec size: %u\n",
               p.enable_pwc, p.pwc_pml4_size, p.pwc_pdp_size, p.pwc_pde_size);
-        pwc.pml4cache = new PML4Cache(p.pwc_pml4_size);
-        pwc.pdpcache = new PDPCache(p.pwc_pdp_size);
-        pwc.pdecache = new PDECache(p.pwc_pde_size);
+        pwc = new PageStructureCache(p.pwc_pml4_size,
+            p.pwc_pdp_size, p.pwc_pde_size);
 
         static_cast<TLB*>(dtb)->getWalker()->setEnablePwc();
-        static_cast<TLB*>(dtb)->getWalker()->setPwcPtr(pwc);
+        static_cast<TLB*>(dtb)->getWalker()->setPwc(pwc);
         static_cast<TLB*>(itb)->getWalker()->setEnablePwc();
-        static_cast<TLB*>(itb)->getWalker()->setPwcPtr(pwc);
+        static_cast<TLB*>(itb)->getWalker()->setPwc(pwc);
       } else {
-        pwc.pml4cache = nullptr;
-        pwc.pdpcache = nullptr;
-        pwc.pdecache = nullptr;
+        pwc = nullptr;
       }
     }
 
     // Shiming: delete pwc
     ~MMU() {
       if (enablePwc) {
-        delete pwc.pml4cache;
-        delete pwc.pdecache;
-        delete pwc.pdpcache;
+        delete pwc;
       }
     }
 
@@ -98,12 +93,8 @@ class MMU : public BaseMMU
     void
     flushPwc() override {
       if (enablePwc) {
-        assert(pwc.pml4cache);
-        pwc.pml4cache->flush();
-        assert(pwc.pdpcache);
-        pwc.pdpcache->flush();
-        assert(pwc.pdecache);
-        pwc.pdecache->flush();
+        assert(pwc);
+        pwc->flush();
       }
     }
 
