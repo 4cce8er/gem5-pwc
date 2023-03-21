@@ -61,6 +61,8 @@ Source('pagetable_walker.cc', tags='x86 isa')
 Source('process.cc', tags='x86 isa')
 Source('remote_gdb.cc', tags='x86 isa')
 Source('tlb.cc', tags='x86 isa')
+# Shiming:
+Source('translation_cache.cc', tags='x86 isa')
 Source('types.cc', tags='x86 isa')
 Source('utility.cc', tags='x86 isa')
 
