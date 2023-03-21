@@ -91,6 +91,11 @@ BaseMMU::flushAll()
     for (auto tlb : unified) {
         tlb->flushAll();
     }
+
+    // Shiming:
+    if (enablePwc) {
+        flushPwc();
+    }
 }
 
 void

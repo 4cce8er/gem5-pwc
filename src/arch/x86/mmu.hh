@@ -42,6 +42,11 @@
 #include "arch/x86/page_size.hh"
 #include "arch/x86/tlb.hh"
 
+// Shiming: to use functions in walker
+#include "arch/x86/pagetable_walker.hh"
+
+// Shiming: add pwc
+#include "arch/x86/translation_cache.hh"
 #include "params/X86MMU.hh"
 
 namespace gem5
@@ -51,13 +56,55 @@ namespace X86ISA {
 
 class MMU : public BaseMMU
 {
+    // Shiming: pwc related members
   public:
+    PageWalkCachePtr pwc;
+  public:
+    // Shiming: construct pwc
     MMU(const X86MMUParams &p)
       : BaseMMU(p)
     {
-      printf("Construction X86MMU. Enable PWC: %d, pml4c size: %u, "
-            "pdpc size: %u, pdec size: %u\n",
-            p.enable_pwc, p.pwc_pml4_size, p.pwc_pdp_size, p.pwc_pde_size);
+      enablePwc = p.enable_pwc;
+      if (enablePwc) {
+        printf("Construction X86MMU. Enable PWC: %d, pml4c size: %u, "
+              "pdpc size: %u, pdec size: %u\n",
+              p.enable_pwc, p.pwc_pml4_size, p.pwc_pdp_size, p.pwc_pde_size);
+        pwc.pml4cache = new PML4Cache(p.pwc_pml4_size);
+        pwc.pdpcache = new PDPCache(p.pwc_pdp_size);
+        pwc.pdecache = new PDECache(p.pwc_pde_size);
+
+        static_cast<TLB*>(dtb)->getWalker()->setEnablePwc();
+        static_cast<TLB*>(dtb)->getWalker()->setPwcPtr(pwc);
+        static_cast<TLB*>(itb)->getWalker()->setEnablePwc();
+        static_cast<TLB*>(itb)->getWalker()->setPwcPtr(pwc);
+      } else {
+        pwc.pml4cache = nullptr;
+        pwc.pdpcache = nullptr;
+        pwc.pdecache = nullptr;
+      }
+    }
+
+    // Shiming: delete pwc
+    ~MMU() {
+      if (enablePwc) {
+        delete pwc.pml4cache;
+        delete pwc.pdecache;
+        delete pwc.pdpcache;
+      }
+    }
+
+    // Shiming:
+  public:
+    void
+    flushPwc() override {
+      if (enablePwc) {
+        assert(pwc.pml4cache);
+        pwc.pml4cache->flush();
+        assert(pwc.pdpcache);
+        pwc.pdpcache->flush();
+        assert(pwc.pdecache);
+        pwc.pdecache->flush();
+      }
     }
 
     void
@@ -65,6 +112,8 @@ class MMU : public BaseMMU
     {
         static_cast<TLB*>(itb)->flushNonGlobal();
         static_cast<TLB*>(dtb)->flushNonGlobal();
+        // Shiming: always flushall according to document
+        if (enablePwc) { flushPwc(); }
     }
 
     Walker*

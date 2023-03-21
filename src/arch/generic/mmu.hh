@@ -88,7 +88,7 @@ class BaseMMU : public SimObject
     typedef BaseMMUParams Params;
 
     BaseMMU(const Params &p)
-      : SimObject(p), dtb(p.dtb), itb(p.itb)
+      : SimObject(p), dtb(p.dtb), itb(p.itb), /** Shiming */ enablePwc(false)
     {}
 
     BaseTLB*
@@ -182,6 +182,11 @@ class BaseMMU : public SimObject
     std::set<BaseTLB*> data;
     std::set<BaseTLB*> unified;
 
+  protected:
+    // Shiming: should be false for all archs other than x86
+    bool enablePwc;
+    // Shiming: for flushing pwc
+    virtual void flushPwc() { panic("no impl"); }
 };
 
 } // namespace gem5

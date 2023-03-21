@@ -43,6 +43,8 @@
 #include "arch/generic/mmu.hh"
 #include "arch/x86/pagetable.hh"
 #include "arch/x86/tlb.hh"
+// Shiming:
+#include "arch/x86/translation_cache.hh"
 #include "base/types.hh"
 #include "mem/packet.hh"
 #include "params/X86PagetableWalker.hh"
@@ -205,9 +207,20 @@ namespace X86ISA
             funcState(this, NULL, NULL, true), tlb(NULL), sys(params.system),
             requestorId(sys->getRequestorId(this)),
             numSquashable(params.num_squash_per_cycle),
-            startWalkWrapperEvent([this]{ startWalkWrapper(); }, name())
+            startWalkWrapperEvent([this]{ startWalkWrapper(); }, name()),
+            /** Shiming: */ enablePwc(false)
         {
         }
+
+        // Shiming: pwc-related
+      private:
+        bool enablePwc;
+      public:
+        void setEnablePwc();
+
+      // Shiming: pwc stuff
+        PageWalkCachePtr pwcPtr;
+        void setPwcPtr(PageWalkCachePtr ptr);
     };
 
 } // namespace X86ISA
