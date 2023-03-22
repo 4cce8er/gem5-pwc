@@ -651,11 +651,14 @@ Walker::WalkerState::setupWalk(Addr vaddr)
         if (walker->enablePwc && !functional) {
             TranslationCacheEntry* pwcEntry =
                     walker->pwc->pdeCache.lookup(addr);
+            state = LongPDE;
             if (!pwcEntry) {
                 pwcEntry = walker->pwc->pdpCache.lookup(addr);
+                state = LongPD;
             }
             if (!pwcEntry) {
                 pwcEntry = walker->pwc->pml4Cache.lookup(addr);
+                state = LongPML4;
             }
 
             if (pwcEntry) {
@@ -675,9 +678,11 @@ Walker::WalkerState::setupWalk(Addr vaddr)
                 TranslationCacheEntry* pwcEntry =
                         walker->pwc->pdeCache.lookup(addr,
                             BaseTranslationCache::LegacyAcc::LEGACY_32b_PAE);
+                state = PAEPD;
                 if (!pwcEntry) {
                     pwcEntry = walker->pwc->pdpCache.lookup(addr,
                             BaseTranslationCache::LegacyAcc::LEGACY_32b_PAE);
+                    state = PAEPDP;
                 }
 
                 if (pwcEntry) {
