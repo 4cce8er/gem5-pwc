@@ -66,9 +66,6 @@ class MMU : public BaseMMU
     {
       enablePwc = p.enable_pwc;
       if (enablePwc) {
-        printf("Construction X86MMU. Enable PWC: %d, pml4c size: %u, "
-              "pdpc size: %u, pdec size: %u\n",
-              p.enable_pwc, p.pwc_pml4_size, p.pwc_pdp_size, p.pwc_pde_size);
         pwc = new PageStructureCache(p.pwc_pml4_size,
             p.pwc_pdp_size, p.pwc_pde_size);
 
