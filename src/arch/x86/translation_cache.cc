@@ -42,14 +42,12 @@ namespace X86ISA
         freeList.push_back(&tc[lru]);
     }
 
-
-    BaseTranslationCache::BaseTranslationCache(uint32_t _size,
-            unsigned _idx_mask_bits_h, unsigned _idx_mask_bits_l)
-            : size(_size), idxMaskBitsH(_idx_mask_bits_h),
-                idxMaskBitsL(_idx_mask_bits_l) {
+    BaseTranslationCache::BaseTranslationCache(std::string _name,
+            uint32_t _size, unsigned _idx_mask_bits_h,
+            unsigned _idx_mask_bits_l)
+            : size(_size), myName(_name), idxMaskBitsH(_idx_mask_bits_h),
+                idxMaskBitsL(_idx_mask_bits_l), tc(_size) {
         addrMask = (~(Addr)0 >> idxMaskBitsH) & (~(Addr)0 << idxMaskBitsL);
-        freeList.resize(_size);
-        tc.resize(_size);
         for (int x = 0; x < size; x++) {
             tc[x].trieHandle = NULL;
             freeList.push_back(&tc[x]);
@@ -63,7 +61,7 @@ namespace X86ISA
         TranslationCacheEntry *newEntry = trie.lookup(idx);
         if (newEntry) {
             assert(newEntry->index == idx);
-            assert(newentry->nextStepEntry == ptentry);
+            assert(newEntry->nextStepEntry == ptentry);
             return newEntry;
         }
 
@@ -77,13 +75,16 @@ namespace X86ISA
         newEntry->lruSeq = nextSeq();
         newEntry->index = idx;
         newEntry->trieHandle =
-            trie.insert(idx, getIdxMaskBitsL(), newEntry);
+            trie.insert(idx,
+                TranslationCacheEntryTrie::MaxBits - getIdxMaskBitsL(),
+                newEntry);
         return newEntry;
     }
 
     TranslationCacheEntry* BaseTranslationCache::lookup(Addr va,
             LegacyAcc la, bool update_lru) {
-        TranslationCacheEntry* entry = trie.lookup(legacyMask(va, la));
+        TranslationCacheEntry* entry
+            = trie.lookup(maskVpn(legacyMask(va, la)));
         if (entry && update_lru) {
             entry->lruSeq = nextSeq();
         }

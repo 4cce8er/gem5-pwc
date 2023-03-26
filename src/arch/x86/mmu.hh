@@ -66,7 +66,7 @@ class MMU : public BaseMMU
     {
       enablePwc = p.enable_pwc;
       if (enablePwc) {
-        pwc = new PageStructureCache(p.pwc_pml4_size,
+        pwc = new PageStructureCache(name(), p.pwc_pml4_size,
             p.pwc_pdp_size, p.pwc_pde_size);
 
         static_cast<TLB*>(dtb)->getWalker()->setEnablePwc();

@@ -61,6 +61,8 @@ namespace X86ISA
             uint64_t lruSeq;
 
         protected:
+            std::string myName;
+
             unsigned idxMaskBitsH = 0;
             unsigned idxMaskBitsL = 0; // trie.insert() needs this type
             uint64_t addrMask = 0;
@@ -83,7 +85,7 @@ namespace X86ISA
             }
 
         protected:
-            BaseTranslationCache(uint32_t _size,
+            BaseTranslationCache(std::string _name, uint32_t _size,
                 unsigned _idx_mask_bits_h, unsigned _idx_mask_bits_l);
             virtual ~BaseTranslationCache() = default;
 
@@ -95,6 +97,7 @@ namespace X86ISA
                     LegacyAcc la=LegacyAcc::NONE, bool update_lru=true);
         public:
             void flush();
+            std::string name() const { return myName; }
     };
 
     /**
@@ -107,24 +110,24 @@ namespace X86ISA
             class PML4Cache: public BaseTranslationCache
             {
                 public:
-                    PML4Cache(uint32_t _size)
-                        : BaseTranslationCache(_size, 12, 39) {}
+                    PML4Cache(std::string _name, uint32_t _size)
+                        : BaseTranslationCache(_name, _size, 12, 39) {}
                     Addr legacyMask(Addr vpn, LegacyAcc la) override;
             };
 
             class PDPCache: public BaseTranslationCache
             {
                 public:
-                    PDPCache(uint32_t _size)
-                        : BaseTranslationCache(_size, 12, 30) {}
+                    PDPCache(std::string _name, uint32_t _size)
+                        : BaseTranslationCache(_name, _size, 12, 30) {}
                     Addr legacyMask(Addr vpn, LegacyAcc la) override;
             };
 
             class PDECache: public BaseTranslationCache
             {
                 public:
-                    PDECache(uint32_t _size)
-                        : BaseTranslationCache(_size, 12, 21) {}
+                    PDECache(std::string _name, uint32_t _size)
+                        : BaseTranslationCache(_name, _size, 12, 21) {}
                     Addr legacyMask(Addr vpn, LegacyAcc la) override;
             };
         public:
@@ -134,10 +137,12 @@ namespace X86ISA
             PDECache pdeCache;
         public:
             /** Constructor and destructor */
-            PageStructureCache(uint32_t pml4c_size, uint32_t pdpc_size,
+            PageStructureCache(std::string ownerName,
+                uint32_t pml4c_size, uint32_t pdpc_size,
                 uint32_t pdec_size)
-                : pml4Cache(pml4c_size), pdpCache(pdpc_size),
-                    pdeCache(pdec_size) {}
+                : pml4Cache(ownerName + ".pml4Cache", pml4c_size),
+                    pdpCache(ownerName + ".pdpCache", pdpc_size),
+                    pdeCache(ownerName + ".pdeCache", pdec_size) {}
             ~PageStructureCache() {}
         public:
             void flush();

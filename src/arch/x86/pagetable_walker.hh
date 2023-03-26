@@ -120,8 +120,16 @@ namespace X86ISA
             bool retrying;
             bool started;
             bool squashed;
-            // Shiming: To avoid caching an entry just read from pwc
-            bool fromPwcHit;
+            /**
+             * Shiming: record pwc related stuff
+             * @{
+             */
+            bool hitInPwc;
+            // Shiming: To avoid caching an entry that is just read from pwc
+            bool skipPwcCaching;
+            State pwcHitState;
+            PageTableEntry nextStepEntry;
+            /** @} */
           public:
             WalkerState(Walker * _walker, BaseMMU::Translation *_translation,
                         const RequestPtr &_req, bool _isFunctional = false) :
@@ -130,7 +138,7 @@ namespace X86ISA
                 translation(_translation),
                 functional(_isFunctional), timing(false),
                 retrying(false), started(false), squashed(false),
-                /** Shiming: */fromPwcHit(false)
+                /** Shiming: */hitInPwc(false), skipPwcCaching(false)
             {
             }
             void initState(ThreadContext * _tc, BaseMMU::Mode _mode,
@@ -214,13 +222,19 @@ namespace X86ISA
             requestorId(sys->getRequestorId(this)),
             numSquashable(params.num_squash_per_cycle),
             startWalkWrapperEvent([this]{ startWalkWrapper(); }, name()),
-            /** Shiming: */ enablePwc(false)
+            /** Shiming: */ enablePwc(false), pwcVerifMode(false), pwc(nullptr)
         {
         }
 
         // Shiming: pwc-related
       private:
         bool enablePwc;
+        /**
+         * In verification mode, we use pwc but also do normal pw to verify.
+         * Be careful that stats are not trust-worthy in this mode.
+         * This is not an option in cmdline. Recompile if you need it
+         */
+        bool pwcVerifMode;
       public:
         void setEnablePwc();
 

@@ -245,6 +245,7 @@ Walker::WalkerState::startWalk()
     Fault fault = NoFault;
     assert(!started);
     started = true;
+    DPRINTF(PageTableWalker, "Set up walk for %#016x.\n", req->getVaddr());
     setupWalk(req->getVaddr());
     if (timing) {
         nextState = state;
@@ -310,25 +311,33 @@ Walker::WalkerState::stepWalk(PacketPtr &write)
     bool doTLBInsert = false;
     bool doEndWalk = false;
     bool badNX = pte.nx && mode == BaseMMU::Execute && enableNX;
+
+    // Shiming: in pwc verification mode
+    if (walker->enablePwc && !functional && walker->pwcVerifMode
+                && hitInPwc && pwcHitState == state) {
+        if (pte != nextStepEntry) {
+            panic("In state %d: %s Pw got pte %#016x and pwc found %#016x",
+                    walker->tlb->name(), state, pte,
+                    nextStepEntry);
+        }
+    }
+
     switch(state) {
       case LongPML4:
         /** Shiming:
          * cache a pw step if:
          *  1. this is not functional access;
          *  2. pwc is enabled;
-         *  3. the pte comes from pwc.
+         *  3. the pte is not from a pwc hit.
          * A step can be cached even if it is the first step after pwc hit,
          *  i.e. it inserts itself. I avoid for performance reasons.
+         *  4. pte.a = 1.
          * An entry should be cached after accessed bit is set.
          */
         DPRINTF(PageTableWalker, "Got long mode PML4 entry %#016x.\n", pte);
         nextRead = mbits(pte, 51, 12) + vaddr.longl3 * dataSize;
         doWrite = !pte.a;
         pte.a = 1;
-        // Shiming:
-        if (walker->enablePwc && !functional && !fromPwcHit) {
-            walker->pwc->pml4Cache.insert(vaddr, pte);
-        }
         entry.writable = pte.w;
         entry.user = pte.u;
         if (badNX || !pte.p) {
@@ -338,16 +347,16 @@ Walker::WalkerState::stepWalk(PacketPtr &write)
         }
         entry.noExec = pte.nx;
         nextState = LongPDP;
+        // Shiming: Cache this step
+        if (walker->enablePwc && !functional && !skipPwcCaching && !doWrite) {
+            walker->pwc->pml4Cache.insert(vaddr, pte);
+        }
         break;
       case LongPDP:
         DPRINTF(PageTableWalker, "Got long mode PDP entry %#016x.\n", pte);
         nextRead = mbits(pte, 51, 12) + vaddr.longl2 * dataSize;
         doWrite = !pte.a;
         pte.a = 1;
-        // Shiming:
-        if (walker->enablePwc && !functional && !fromPwcHit) {
-            walker->pwc->pdpCache.insert(vaddr, pte);
-        }
         entry.writable = entry.writable && pte.w;
         entry.user = entry.user && pte.u;
         if (badNX || !pte.p) {
@@ -356,15 +365,15 @@ Walker::WalkerState::stepWalk(PacketPtr &write)
             break;
         }
         nextState = LongPD;
+        // Shiming: Cache this step
+        if (walker->enablePwc && !functional && !skipPwcCaching && !doWrite) {
+            walker->pwc->pdpCache.insert(vaddr, pte);
+        }
         break;
       case LongPD:
         DPRINTF(PageTableWalker, "Got long mode PD entry %#016x.\n", pte);
         doWrite = !pte.a;
         pte.a = 1;
-        // Shiming:
-        if (walker->enablePwc && !functional && !fromPwcHit) {
-            walker->pwc->pdeCache.insert(vaddr, pte);
-        }
         entry.writable = entry.writable && pte.w;
         entry.user = entry.user && pte.u;
         if (badNX || !pte.p) {
@@ -377,8 +386,14 @@ Walker::WalkerState::stepWalk(PacketPtr &write)
             entry.logBytes = 12;
             nextRead = mbits(pte, 51, 12) + vaddr.longl1 * dataSize;
             nextState = LongPTE;
+            // Shiming: Cache this step
+            if (walker->enablePwc && !functional && !skipPwcCaching
+                    && !doWrite) {
+                walker->pwc->pdeCache.insert(vaddr, pte);
+            }
             break;
         } else {
+            DPRINTF(PageTableWalker, "2MB page\n");
             // 2 MB page
             entry.logBytes = 21;
             entry.paddr = mbits(pte, 51, 21);
@@ -415,10 +430,6 @@ Walker::WalkerState::stepWalk(PacketPtr &write)
          * In this mode the step can use a PDP cache, indexed with the [31:30]
          *  bits of the vaddr.
          */
-        if (walker->enablePwc && !functional && !fromPwcHit) {
-            walker->pwc->pdpCache.insert(vaddr, pte,
-                    BaseTranslationCache::LegacyAcc::LEGACY_32b_PAE);
-        }
         DPRINTF(PageTableWalker,
                 "Got legacy mode PAE PDP entry %#08x.\n", pte);
         nextRead = mbits(pte, 51, 12) + vaddr.pael2 * dataSize;
@@ -428,6 +439,10 @@ Walker::WalkerState::stepWalk(PacketPtr &write)
             break;
         }
         nextState = PAEPD;
+        if (walker->enablePwc && !functional && !skipPwcCaching && !doWrite) {
+            walker->pwc->pdpCache.insert(vaddr, pte,
+                    BaseTranslationCache::LegacyAcc::LEGACY_32b_PAE);
+        }
         break;
       case PAEPD:
         /**
@@ -438,11 +453,6 @@ Walker::WalkerState::stepWalk(PacketPtr &write)
         DPRINTF(PageTableWalker, "Got legacy mode PAE PD entry %#08x.\n", pte);
         doWrite = !pte.a;
         pte.a = 1;
-        // Shiming:
-        if (walker->enablePwc && !functional && !fromPwcHit) {
-            walker->pwc->pdeCache.insert(vaddr, pte,
-                    BaseTranslationCache::LegacyAcc::LEGACY_32b_PAE);
-        }
         entry.writable = pte.w;
         entry.user = pte.u;
         if (badNX || !pte.p) {
@@ -455,6 +465,12 @@ Walker::WalkerState::stepWalk(PacketPtr &write)
             entry.logBytes = 12;
             nextRead = mbits(pte, 51, 12) + vaddr.pael1 * dataSize;
             nextState = PAEPTE;
+            // Shiming: Cache this step
+            if (walker->enablePwc && !functional && !skipPwcCaching
+                    && !doWrite) {
+                walker->pwc->pdeCache.insert(vaddr, pte,
+                        BaseTranslationCache::LegacyAcc::LEGACY_32b_PAE);
+            }
             break;
         } else {
             // 2 MB page
@@ -497,11 +513,6 @@ Walker::WalkerState::stepWalk(PacketPtr &write)
         DPRINTF(PageTableWalker, "Got legacy mode PSE PD entry %#08x.\n", pte);
         doWrite = !pte.a;
         pte.a = 1;
-        // Shiming:
-        if (walker->enablePwc && !functional && !fromPwcHit) {
-            walker->pwc->pdeCache.insert(vaddr, pte,
-                    BaseTranslationCache::LegacyAcc::LEGACY_32b_NO_PAE);
-        }
         entry.writable = pte.w;
         entry.user = pte.u;
         if (!pte.p) {
@@ -514,6 +525,12 @@ Walker::WalkerState::stepWalk(PacketPtr &write)
             entry.logBytes = 12;
             nextRead = mbits(pte, 31, 12) + vaddr.norml2 * dataSize;
             nextState = PTE;
+            // Shiming: Cache this step
+            if (walker->enablePwc && !functional && !skipPwcCaching
+                    && !doWrite) {
+                walker->pwc->pdeCache.insert(vaddr, pte,
+                        BaseTranslationCache::LegacyAcc::LEGACY_32b_NO_PAE);
+            }
             break;
         } else {
             // 4 MB page
@@ -536,11 +553,6 @@ Walker::WalkerState::stepWalk(PacketPtr &write)
         DPRINTF(PageTableWalker, "Got legacy mode PD entry %#08x.\n", pte);
         doWrite = !pte.a;
         pte.a = 1;
-        // Shiming:
-        if (walker->enablePwc && !functional && !fromPwcHit) {
-            walker->pwc->pdeCache.insert(vaddr, pte,
-                    BaseTranslationCache::LegacyAcc::LEGACY_32b_NO_PAE);
-        }
         entry.writable = pte.w;
         entry.user = pte.u;
         if (!pte.p) {
@@ -552,6 +564,11 @@ Walker::WalkerState::stepWalk(PacketPtr &write)
         entry.logBytes = 12;
         nextRead = mbits(pte, 31, 12) + vaddr.norml1 * dataSize;
         nextState = PTE;
+        // Shiming: Cache this step
+        if (walker->enablePwc && !functional && !skipPwcCaching && !doWrite) {
+            walker->pwc->pdeCache.insert(vaddr, pte,
+                    BaseTranslationCache::LegacyAcc::LEGACY_32b_NO_PAE);
+        }
         break;
       case PTE:
         DPRINTF(PageTableWalker, "Got legacy mode PTE entry %#08x.\n", pte);
@@ -639,8 +656,7 @@ Walker::WalkerState::setupWalk(Addr vaddr)
     dataSize = 8;
     Addr topAddr;
     // Shiming: pwc related
-    bool hitInPwc = false;
-    PageTableEntry nextStepEntry = 0x0;
+    hitInPwc = false;
     if (efer.lma) {
         // Do long mode.
         state = LongPML4;
@@ -651,14 +667,14 @@ Walker::WalkerState::setupWalk(Addr vaddr)
         if (walker->enablePwc && !functional) {
             TranslationCacheEntry* pwcEntry =
                     walker->pwc->pdeCache.lookup(addr);
-            state = LongPDE;
+            pwcHitState = LongPD;
             if (!pwcEntry) {
                 pwcEntry = walker->pwc->pdpCache.lookup(addr);
-                state = LongPD;
+                pwcHitState = LongPDP;
             }
             if (!pwcEntry) {
                 pwcEntry = walker->pwc->pml4Cache.lookup(addr);
-                state = LongPML4;
+                pwcHitState = LongPML4;
             }
 
             if (pwcEntry) {
@@ -678,11 +694,11 @@ Walker::WalkerState::setupWalk(Addr vaddr)
                 TranslationCacheEntry* pwcEntry =
                         walker->pwc->pdeCache.lookup(addr,
                             BaseTranslationCache::LegacyAcc::LEGACY_32b_PAE);
-                state = PAEPD;
+                pwcHitState = PAEPD;
                 if (!pwcEntry) {
                     pwcEntry = walker->pwc->pdpCache.lookup(addr,
                             BaseTranslationCache::LegacyAcc::LEGACY_32b_PAE);
-                    state = PAEPDP;
+                    pwcHitState = PAEPDP;
                 }
 
                 if (pwcEntry) {
@@ -707,6 +723,7 @@ Walker::WalkerState::setupWalk(Addr vaddr)
                 TranslationCacheEntry* pwcEntry =
                     walker->pwc->pdeCache.lookup(addr,
                         BaseTranslationCache::LegacyAcc::LEGACY_32b_NO_PAE);
+                pwcHitState = state;
                 if (pwcEntry) {
                     hitInPwc = true;
                     nextStepEntry = pwcEntry->nextStepEntry;
@@ -731,21 +748,35 @@ Walker::WalkerState::setupWalk(Addr vaddr)
     read = new Packet(request, MemCmd::ReadReq);
     read->allocate();
 
-    // Shiming: Skip steps if hit in pwc
-    // @{
-    if (walker->enablePwc && !functional && hitInPwc) {
+    /**
+     * Shiming: Skip steps if
+     * 1. pwc enabled
+     * 2. not functional
+     * 3. hit in pwc
+     * 4. not in pwc verification mode (otherwise we do a normal pagewalk
+     *  and compare the results. Pwc results are stored in this WalkerState)
+     */
+    if (walker->enablePwc && !functional && hitInPwc
+            && !walker->pwcVerifMode) {
+        DPRINTF(PageTableWalker, "Skipping steps to %#016x.\n", nextStepEntry);
+        state = pwcHitState;
         if (dataSize == 8) {
             read->setLE<uint64_t>(nextStepEntry);
         } else {
             read->setLE<uint32_t>(nextStepEntry);
         }
 
-        // do similar things as in rectPacket()
+        // We start from an uninitialized TLB entry. Fill in the bits that
+        //  are "contagious" in page table hierarchy.
+        entry.writable = nextStepEntry.w;
+        entry.user = nextStepEntry.u;
+
+        // do similar things as in recvPacket()
         PacketPtr write = NULL;
-        fromPwcHit = true;
+        skipPwcCaching = true;
         timingFault = stepWalk(write);
-        fromPwcHit = false;
-        state = Waiting;
+        skipPwcCaching = false;
+        state = nextState;
         assert(timingFault == NoFault && read != NULL); // Should have set read
         /**
          * Shiming: No need to send any writes.
@@ -753,9 +784,8 @@ Walker::WalkerState::setupWalk(Addr vaddr)
          *  be set. In PWC, the entries are only cached if the accessed bit
          *  is 1 ("TLBs, Paging-Structure Caches, and Their Invalidation" 3).
          */
-        sendPackets();
+        assert(nextStepEntry.a && "PWC entry must have accessed bit=1");
     }
-    // @}
 }
 
 bool
