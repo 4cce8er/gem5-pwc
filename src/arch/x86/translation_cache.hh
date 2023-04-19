@@ -20,6 +20,7 @@
 #include "arch/x86/pagetable.hh" // Shiming: To use PageTableEntry
 #include "arch/x86/pagetable_walker.hh" // Shiming: To use State
 #include "base/trie.hh"
+#include "sim/stats.hh"
 
 #ifndef __ARCH_X86_TRANSLATION_CACHE_HH__
 #define __ARCH_X86_TRANSLATION_CACHE_HH__
@@ -89,6 +90,14 @@ namespace X86ISA
                 unsigned _idx_mask_bits_h, unsigned _idx_mask_bits_l);
             virtual ~BaseTranslationCache() = default;
 
+            struct TranslationCacheStats
+            {
+                statistics::Scalar flush;
+                statistics::Scalar insert;
+                statistics::Scalar evict;
+                statistics::Scalar hit;
+                statistics::Scalar miss;
+            } stats;
         public:
             TranslationCacheEntry* insert(Addr vpn,
                     const PageTableEntry &ptentry,

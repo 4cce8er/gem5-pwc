@@ -40,6 +40,7 @@ namespace X86ISA
         trie.remove(tc[lru].trieHandle);
         tc[lru].trieHandle = NULL;
         freeList.push_back(&tc[lru]);
+        stats.evict++;
     }
 
     BaseTranslationCache::BaseTranslationCache(std::string _name,
@@ -52,6 +53,11 @@ namespace X86ISA
             tc[x].trieHandle = NULL;
             freeList.push_back(&tc[x]);
         }
+        stats.flush.name(name() + "flush");
+        stats.insert.name(name() + "insert");
+        stats.evict.name(name() + "evict");
+        stats.hit.name(name() + "hit");
+        stats.miss.name(name() + "miss");
     }
 
     TranslationCacheEntry* BaseTranslationCache::insert(Addr vpn,
@@ -78,6 +84,7 @@ namespace X86ISA
             trie.insert(idx,
                 TranslationCacheEntryTrie::MaxBits - getIdxMaskBitsL(),
                 newEntry);
+        stats.insert++;
         return newEntry;
     }
 
@@ -85,8 +92,13 @@ namespace X86ISA
             LegacyAcc la, bool update_lru) {
         TranslationCacheEntry* entry
             = trie.lookup(maskVpn(legacyMask(va, la)));
-        if (entry && update_lru) {
-            entry->lruSeq = nextSeq();
+        if (entry) {
+            stats.hit++;
+            if (update_lru) {
+                entry->lruSeq = nextSeq();
+            }
+        } else {
+            stats.miss++;
         }
         return entry;
     }
@@ -103,6 +115,7 @@ namespace X86ISA
                 freeList.push_back(&tc[i]);
             }
         }
+        stats.flush++;
     }
 
     // Child classes
