@@ -246,6 +246,10 @@ Walker::WalkerState::startWalk()
     assert(!started);
     started = true;
     DPRINTF(PageTableWalker, "Set up walk for %#016x.\n", req->getVaddr());
+
+    // Shiming: Profile start time
+    startTick = curTick();
+
     setupWalk(req->getVaddr());
     if (timing) {
         nextState = state;
@@ -643,6 +647,9 @@ Walker::WalkerState::endWalk()
     nextState = Ready;
     delete read;
     read = NULL;
+
+    // Shiming: profile pagewalk penalty
+    walker->tlb->increasePageWalkLat(curTick() - startTick);
 }
 
 void

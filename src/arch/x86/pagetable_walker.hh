@@ -160,6 +160,9 @@ namespace X86ISA
             void sendPackets();
             void endWalk();
             Fault pageFault(bool present);
+
+            // Shiming: Profile page walk penalty
+            Tick startTick;
         };
 
         friend class WalkerState;

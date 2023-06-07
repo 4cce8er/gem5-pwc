@@ -117,6 +117,11 @@ namespace X86ISA
             statistics::Scalar wrAccesses;
             statistics::Scalar rdMisses;
             statistics::Scalar wrMisses;
+
+            // Shiming: profile pagewalk penalty
+            statistics::Scalar pageWalkNum;
+            statistics::Scalar pageWalkTotalLat;
+            statistics::Formula pageWalkAvgLat;
         } stats;
 
         Fault translateInt(bool read, RequestPtr req, ThreadContext *tc);
@@ -124,6 +129,10 @@ namespace X86ISA
         Fault translate(const RequestPtr &req, ThreadContext *tc,
                 BaseMMU::Translation *translation, BaseMMU::Mode mode,
                 bool &delayedResponse, bool timing);
+
+      // Shiming: expose public function
+      public:
+        void increasePageWalkLat(Tick lat) { stats.pageWalkTotalLat += lat; }
 
       public:
 

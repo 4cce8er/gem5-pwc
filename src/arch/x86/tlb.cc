@@ -76,6 +76,9 @@ TLB::TLB(const Params &p)
 
     walker = p.walker;
     walker->setTLB(this);
+
+    // Shiming: Init page walk latency stats
+    stats.pageWalkAvgLat = stats.pageWalkTotalLat / stats.pageWalkNum;
 }
 
 void
@@ -434,6 +437,8 @@ TLB::translate(const RequestPtr &req,
                 }
                 if (FullSystem) {
                     Fault fault = walker->start(tc, translation, req, mode);
+                    // Shiming: record page walks
+                    stats.pageWalkNum++;
                     if (timing || fault != NoFault) {
                         // This gets ignored in atomic mode.
                         delayedResponse = true;
@@ -576,7 +581,15 @@ TLB::TlbStats::TlbStats(statistics::Group *parent)
     ADD_STAT(rdMisses, statistics::units::Count::get(),
              "TLB misses on read requests"),
     ADD_STAT(wrMisses, statistics::units::Count::get(),
-             "TLB misses on write requests")
+             "TLB misses on write requests"),
+    // Shiming
+    ADD_STAT(pageWalkNum, statistics::units::Count::get(),
+             "Total number of page walks"),
+    ADD_STAT(pageWalkTotalLat, statistics::units::Tick::get(),
+             "Total latency of page walks"),
+    ADD_STAT(pageWalkAvgLat, statistics::units::Rate<
+                statistics::units::Tick, statistics::units::Count>::get(),
+             "Average latency of page walks")
 {
 }
 
