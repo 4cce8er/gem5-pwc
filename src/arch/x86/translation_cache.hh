@@ -43,7 +43,7 @@ namespace X86ISA
     struct TranslationCacheEntry
     {
         Addr index;
-        PageTableEntry nextStepEntry;
+        ::gem5::X86ISA::PageTableEntry nextStepEntry;
         uint64_t lruSeq;
         TranslationCacheEntryTrie::Handle trieHandle;
     };
@@ -100,7 +100,7 @@ namespace X86ISA
             } stats;
         public:
             TranslationCacheEntry* insert(Addr vpn,
-                    const PageTableEntry &ptentry,
+                    const ::gem5::X86ISA::PageTableEntry &ptentry,
                     LegacyAcc la=LegacyAcc::NONE);
             TranslationCacheEntry* lookup(Addr va,
                     LegacyAcc la=LegacyAcc::NONE, bool update_lru=true);

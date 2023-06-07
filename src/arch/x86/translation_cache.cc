@@ -53,15 +53,15 @@ namespace X86ISA
             tc[x].trieHandle = NULL;
             freeList.push_back(&tc[x]);
         }
-        stats.flush.name(name() + "flush");
-        stats.insert.name(name() + "insert");
-        stats.evict.name(name() + "evict");
-        stats.hit.name(name() + "hit");
-        stats.miss.name(name() + "miss");
+        stats.flush.name(name() + ".flush");
+        stats.insert.name(name() + ".insert");
+        stats.evict.name(name() + ".evict");
+        stats.hit.name(name() + ".hit");
+        stats.miss.name(name() + ".miss");
     }
 
     TranslationCacheEntry* BaseTranslationCache::insert(Addr vpn,
-                const PageTableEntry &ptentry, LegacyAcc la) {
+                const ::gem5::X86ISA::PageTableEntry &ptentry, LegacyAcc la) {
         Addr idx = maskVpn(legacyMask(vpn, la));
         // If somebody beat us to it, just use that existing entry.
         TranslationCacheEntry *newEntry = trie.lookup(idx);

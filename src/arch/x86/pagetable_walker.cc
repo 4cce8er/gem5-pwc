@@ -329,10 +329,10 @@ Walker::WalkerState::stepWalk(PacketPtr &write)
          *  1. this is not functional access;
          *  2. pwc is enabled;
          *  3. the pte is not from a pwc hit.
-         * A step can be cached even if it is the first step after pwc hit,
-         *  i.e. it inserts itself. I avoid for performance reasons.
+         * Actually it can be cached even if it is the 1st step after pwc hit,
+         *  i.e. it inserts itself. I just avoid it for performance reasons.
          *  4. pte.a = 1.
-         * An entry should be cached after accessed bit is set.
+         * An entry should be cached only after accessed bit is set.
          */
         DPRINTF(PageTableWalker, "Got long mode PML4 entry %#016x.\n", pte);
         nextRead = mbits(pte, 51, 12) + vaddr.longl3 * dataSize;
